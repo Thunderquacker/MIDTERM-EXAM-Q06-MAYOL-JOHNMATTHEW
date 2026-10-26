@@ -2,72 +2,182 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>REST API Frontend</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Customer Service Ticket System</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; color: #333; }
+    h1, h2 { color: #1e1b4b; }
+    form { margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; max-width: 400px; border-radius: 4px; }
+    form div { margin-bottom: 10px; }
+    label { display: block; font-weight: bold; margin-bottom: 4px; }
+    input, select, textarea { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+    button { padding: 8px 15px; background: #312e81; color: white; border: none; cursor: pointer; border-radius: 4px; }
+    button:hover { background: #1e1b4b; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+    th { background-color: #f1f5f9; color: #1e1b4b; }
+    .delete-btn { background: #991b1b; }
+    .delete-btn:hover { background: #7f1d1d; }
+  </style>
 </head>
 <body>
-  <h1>REST API Management</h1>
+  <h1>Customer Service Ticket System</h1>
 
-  <h2>Add New Record</h2>
-  <form id="add-form">
-    <input type="text" id="title" placeholder="Title" required>
-    <input type="text" id="description" placeholder="Description" required>
-    <button type="submit">Add Record</button>
+  <h2>Add New Ticket</h2>
+  <form id="createForm">
+    <div>
+      <label for="customer_name">Customer Name:</label>
+      <input type="text" id="customer_name" required>
+    </div>
+    <div>
+      <label for="problem">Problem Description:</label>
+      <textarea id="problem" rows="3" required></textarea>
+    </div>
+    <div>
+      <label for="priority">Priority:</label>
+      <select id="priority" required>
+        <option value="Low">Low</option>
+        <option value="Medium">Medium</option>
+        <option value="High">High</option>
+      </select>
+    </div>
+    <button type="submit">Create Ticket</button>
   </form>
 
-  <h2>Search Record by ID</h2>
-  <input type="text" id="search-id" placeholder="Enter ID">
-  <button onclick="searchRecord()">Search</button>
-  <div id="search-result"></div>
 
-  <h2>All Records</h2>
-  <button onclick="loadRecords()">Refresh Records</button>
-  <ul id="records-list"></ul>
+  <h2>Search Ticket by ID</h2>
+  <div>
+    <input type="text" id="searchId" placeholder="Enter Ticket ID" style="width: 200px; display: inline-block;">
+    <button onclick="searchTicket()">Search</button>
+    <button onclick="fetchTickets()">Reset / Show All</button>
+  </div>
+  <div id="searchResult" style="margin-top: 10px;"></div>
+
+
+  <h2>All Tickets</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Customer Name</th>
+        <th>Problem</th>
+        <th>Priority</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="ticketsTableBody"></tbody>
+  </table>
 
   <script>
-    async function loadRecords() {
-      const res = await fetch('/api/items');
-      const data = await res.json();
-      const list = document.getElementById('records-list');
-      list.innerHTML = '';
-      data.forEach(item => {
-        const li = document.createElement('li');
-        li.innerHTML = `<strong>[ID: ${item.id}] ${item.title}</strong>: ${item.description} ` +
-                       `<button onclick="deleteRecord('${item.id}')">Delete</button>`;
-        list.appendChild(li);
-      });
-    }
+    const API_URL = '/api/tickets';
 
-    document.getElementById('add-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const title = document.getElementById('title').value;
-      const description = document.getElementById('description').value;
-      await fetch('/api/items', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description })
-      });
-      e.target.reset();
-      loadRecords();
-    });
 
-    async function searchRecord() {
-      const id = document.getElementById('search-id').value;
-      const res = await fetch(`/api/items/${id}`);
-      const container = document.getElementById('search-result');
-      if (res.status === 200) {
-        const item = await res.json();
-        container.innerHTML = `<p>Found: <strong>${item.title}</strong> - ${item.description}</p>`;
-      } else {
-        container.innerHTML = '<p>Record not found.</p>';
+    async function fetchTickets() {
+      document.getElementById('searchResult').innerHTML = '';
+      try {
+        const res = await fetch(API_URL);
+        const tickets = await res.json();
+        renderTickets(tickets);
+      } catch (err) {
+        console.error('Failed to load tickets:', err);
       }
     }
 
-    async function deleteRecord(id) {
-      await fetch(`/api/items/${id}`, { method: 'DELETE' });
-      loadRecords();
+    function renderTickets(tickets) {
+      const tbody = document.getElementById('ticketsTableBody');
+      tbody.innerHTML = '';
+      if (tickets.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No tickets found.</td></tr>';
+        return;
+      }
+      tickets.forEach(ticket => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${ticket.id}</td>
+          <td>${ticket.customer_name}</td>
+          <td>${ticket.problem}</td>
+          <td>${ticket.priority}</td>
+          <td><strong>${ticket.status}</strong></td>
+          <td><button class="delete-btn" onclick="deleteTicket('${ticket.id}')">Delete</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
     }
 
-    loadRecords();
+
+    document.getElementById('createForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const newTicket = {
+        customer_name: document.getElementById('customer_name').value,
+        problem: document.getElementById('problem').value,
+        priority: document.getElementById('priority').value
+      };
+
+      try {
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newTicket)
+        });
+
+        if (res.ok) {
+          document.getElementById('createForm').reset();
+          fetchTickets();
+        } else {
+          const errData = await res.json();
+          alert('Error: ' + (errData.message || 'Failed to create ticket.'));
+        }
+      } catch (err) {
+        alert('Network error failed to create ticket.');
+      }
+    });
+
+
+    async function searchTicket() {
+      const id = document.getElementById('searchId').value.trim();
+      if (!id) return alert('Please enter a Ticket ID.');
+
+      const resultDiv = document.getElementById('searchResult');
+      try {
+        const res = await fetch(`${API_URL}/${id}`);
+        if (res.ok) {
+          const ticket = await res.json();
+          resultDiv.innerHTML = `
+            <div style="padding: 12px; border: 1px solid #312e81; border-radius: 4px; max-width: 400px; background-color: #f8fafc;">
+              <p><strong>ID:</strong> ${ticket.id}</p>
+              <p><strong>Customer:</strong> ${ticket.customer_name}</p>
+              <p><strong>Problem:</strong> ${ticket.problem}</p>
+              <p><strong>Priority:</strong> ${ticket.priority}</p>
+              <p><strong>Status:</strong> ${ticket.status}</p>
+            </div>
+          `;
+        } else {
+          resultDiv.innerHTML = '<p style="color: #991b1b; font-weight: bold;">Ticket not found.</p>';
+        }
+      } catch (err) {
+        resultDiv.innerHTML = '<p style="color: #991b1b;">Error retrieving ticket details.</p>';
+      }
+    }
+
+
+    async function deleteTicket(id) {
+      if (!confirm(`Are you sure you want to delete ticket ID: ${id}?`)) return;
+
+      try {
+        const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          fetchTickets();
+        } else {
+          alert('Failed to delete ticket.');
+        }
+      } catch (err) {
+        alert('Network error while deleting ticket.');
+      }
+    }
+
+
+    fetchTickets();
   </script>
 </body>
 </html>
