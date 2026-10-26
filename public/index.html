@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>REST API Frontend</title>
+</head>
+<body>
+  <h1>REST API Management</h1>
+
+  <h2>Add New Record</h2>
+  <form id="add-form">
+    <input type="text" id="title" placeholder="Title" required>
+    <input type="text" id="description" placeholder="Description" required>
+    <button type="submit">Add Record</button>
+  </form>
+
+  <h2>Search Record by ID</h2>
+  <input type="text" id="search-id" placeholder="Enter ID">
+  <button onclick="searchRecord()">Search</button>
+  <div id="search-result"></div>
+
+  <h2>All Records</h2>
+  <button onclick="loadRecords()">Refresh Records</button>
+  <ul id="records-list"></ul>
+
+  <script>
+    async function loadRecords() {
+      const res = await fetch('/api/items');
+      const data = await res.json();
+      const list = document.getElementById('records-list');
+      list.innerHTML = '';
+      data.forEach(item => {
+        const li = document.createElement('li');
+        li.innerHTML = `<strong>[ID: ${item.id}] ${item.title}</strong>: ${item.description} ` +
+                       `<button onclick="deleteRecord('${item.id}')">Delete</button>`;
+        list.appendChild(li);
+      });
+    }
+
+    document.getElementById('add-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const title = document.getElementById('title').value;
+      const description = document.getElementById('description').value;
+      await fetch('/api/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, description })
+      });
+      e.target.reset();
+      loadRecords();
+    });
+
+    async function searchRecord() {
+      const id = document.getElementById('search-id').value;
+      const res = await fetch(`/api/items/${id}`);
+      const container = document.getElementById('search-result');
+      if (res.status === 200) {
+        const item = await res.json();
+        container.innerHTML = `<p>Found: <strong>${item.title}</strong> - ${item.description}</p>`;
+      } else {
+        container.innerHTML = '<p>Record not found.</p>';
+      }
+    }
+
+    async function deleteRecord(id) {
+      await fetch(`/api/items/${id}`, { method: 'DELETE' });
+      loadRecords();
+    }
+
+    loadRecords();
+  </script>
+</body>
+</html>
